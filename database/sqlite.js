@@ -3,8 +3,13 @@ const { open } = require('sqlite')
 const path = require('path')
 
 async function conectarBanco() {
+    // Em ambientes Serverless (ex: Vercel), usa /tmp para permitir escrita no SQLite
+    const dbPath = process.env.VERCEL
+        ? path.join('/tmp', 'sigrh_ponto.db')
+        : path.join(__dirname, '..', 'sigrh_ponto.db')
+
     const db = await open({
-        filename: path.join(__dirname, '..', 'sigrh_ponto.db'),
+        filename: dbPath,
         driver: sqlite3.Database
     })
 
