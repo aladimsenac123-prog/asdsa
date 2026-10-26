@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthTech BioAuth | Você é a sua senha</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- Biblioteca face-api.js para reconhecimento facial no navegador -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script defer src="/js/app.js"></script>
+</head>
+<body class="bg-dark text-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black border-bottom border-secondary py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+                <i class="bi bi-person-bounding-box text-info fs-4"></i>
+                <span>HealthTech <span class="text-info">BioAuth</span></span>
+            </a>
+            <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">
+                <i class="bi bi-shield-lock-fill me-1"></i> "Você é a sua senha" • Conformidade LGPD
+            </span>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div id="alertContainer"></div>
+
+        <!-- Status de Carregamento das Redes Neurais (face-api.js) -->
+        <div id="statusModelos" class="alert alert-info bg-dark border-info text-info d-flex align-items-center shadow-sm mb-4">
+            <div class="spinner-border spinner-border-sm me-3" role="status" id="spinnerModelos"></div>
+            <div>
+                <strong>Inicializando Motor Biométrico (face-api.js)...</strong>
+                <div class="small text-secondary" id="textoStatusModelos">Carregando modelos TinyFaceDetector, FaceLandmark68Net e FaceRecognitionNet...</div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- COLUNA ESQUERDA: Câmera e Detecção Biométrica ao Vivo -->
+            <div class="col-lg-6">
+                <div class="card bg-black border-secondary shadow-lg h-100">
+                    <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center py-3">
+                        <h5 class="mb-0 text-white fw-bold">
+                            <i class="bi bi-camera-video text-info me-2"></i>Scanner Biométrico em Tempo Real
+                        </h5>
+                        <span id="badgeQualidade" class="badge bg-secondary">Aguardando Câmera</span>
+                    </div>
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                        <div class="video-wrapper position-relative rounded overflow-hidden border border-secondary mb-3">
+                            <video id="webcam" autoplay muted playsinline width="480" height="360"></video>
+                            <canvas id="overlay" width="480" height="360" class="position-absolute top-0 start-0"></canvas>
+                            <div class="scan-line" id="scanLine"></div>
+                        </div>
+
+                        <!-- Indicadores de Qualidade e Anti-Spoofing -->
+                        <div class="w-100 px-2">
+                            <div class="d-flex justify-content-between small text-secondary mb-1">
+                                <span>Qualidade da Captura / Confiança da Face:</span>
+                                <span id="valorConfianca" class="text-info fw-bold">0%</span>
+                            </div>
+                            <div class="progress bg-secondary bg-opacity-25 mb-3" style="height: 8px;">
+                                <div id="barraConfianca" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center bg-dark p-2 rounded border border-secondary">
+                                <div class="small">
+                                    <i class="bi bi-eye text-warning me-1"></i>
+                                    <span id="statusRosto">Posicione seu rosto centralizado e em local iluminado.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="toggleAutoLogin" checked>
+                                    <label class="form-check-label small text-light" for="toggleAutoLogin">Login Automático</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUNA DIREITA: Abas de Login Automático e Cadastro de Face -->
+            <div class="col-lg-6">
+                <div class="card bg-black border-secondary shadow-lg h-100">
+                    <div class="card-header bg-transparent border-secondary pt-3 pb-0">
+                        <ul class="nav nav-tabs border-secondary" id="authTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold" id="tab-login-btn" data-bs-toggle="tab" data-bs-target="#tabLogin" type="button" role="tab">
+                                    <i class="bi bi-unlock-fill me-1"></i> 1. Login Facial (Acesso)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold" id="tab-cadastro-btn" data-bs-toggle="tab" data-bs-target="#tabCadastro" type="button" role="tab">
+                                    <i class="bi bi-person-plus-fill me-1"></i> 2. Cadastrar Biometria
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <div class="tab-content">
+                            <!-- ABA 1: LOGIN AUTOMÁTICO -->
+                            <div class="tab-pane fade show active" id="tabLogin" role="tabpanel">
+                                <div class="text-center py-3">
+                                    <div class="display-4 text-info mb-3">
+                                        <i class="bi bi-shield-check"></i>
+                                    </div>
+                                    <h4 class="fw-bold text-white">Autenticação Zero-Senha</h4>
+                                    <p class="text-secondary small">
+                                        Olhe para a câmera. Assim que os 68 pontos biométricos da sua face forem validados com alta confiança, seu acesso ao <strong>Painel Secreto do Laboratório</strong> será liberado automaticamente.
+                                    </p>
+
+                                    <div class="p-3 rounded bg-dark border border-secondary text-start mb-4">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-cpu text-info me-2"></i>
+                                            <span class="small fw-bold text-white">Status da Verificação em Tempo Real:</span>
+                                        </div>
+                                        <p class="small text-secondary mb-0" id="logReconhecimento">
+                                            Aguardando detecção de face válida pela webcam...
+                                        </p>
+                                    </div>
+
+                                    <button type="button" id="btnForcarLogin" class="btn btn-info btn-lg w-100 fw-bold" disabled>
+                                        <i class="bi bi-camera me-2"></i>Autenticar com Minha Face Agora
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- ABA 2: CADASTRO DE FACE + TERMO LGPD -->
+                            <div class="tab-pane fade" id="tabCadastro" role="tabpanel">
+                                <h5 class="fw-bold text-white mb-3">Novo Cadastro Biométrico de Colaborador</h5>
+                                <form id="formCadastro">
+                                    <div class="mb-3">
+                                        <label class="form-label small text-secondary">Nome Completo do Colaborador</label>
+                                        <input type="text" id="nome" class="form-control bg-dark text-white border-secondary" placeholder="Ex: Dra. Ana Clara Mendes" required>
+                                    </div>
+
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-7">
+                                            <label class="form-label small text-secondary">E-mail Corporativo</label>
+                                            <input type="email" id="email" class="form-control bg-dark text-white border-secondary" placeholder="ana.mendes@healthtech.com" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small text-secondary">Setor / Laboratório</label>
+                                            <select id="setor" class="form-select bg-dark text-white border-secondary" required>
+                                                <option value="Laboratório Clínico Nível 3">Lab. Clínico Nível 3</option>
+                                                <option value="Genética e Biologia Molecular">Genética e Biologia</option>
+                                                <option value="Pesquisa Farmacêutica">Pesquisa Farmacêutica</option>
+                                                <option value="Segurança da Informação">Segurança / TI</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label small text-secondary mb-0">Vetor Biométrico (128 dimensões)</label>
+                                            <span id="badgeVetorCapturado" class="badge bg-warning text-dark">Não capturado</span>
+                                        </div>
+                                        <button type="button" id="btnCapturarFace" class="btn btn-outline-info w-100" disabled>
+                                            <i class="bi bi-bounding-box-circles me-2"></i>Capturar Pontos Biométricos da Minha Face
+                                        </button>
+                                    </div>
+
+                                    <!-- DOCUMENTO DE TERMOS DE USO E LGPD OBRIGATÓRIO -->
+                                    <div class="p-3 rounded bg-dark border border-info border-opacity-50 mb-3">
+                                        <h6 class="text-info fw-bold small mb-1">
+                                            <i class="bi bi-file-earmark-lock2-fill me-1"></i>Termo de Uso e Proteção de Dados Biométricos (LGPD)
+                                        </h6>
+                                        <p class="small text-secondary mb-2" style="font-size: 0.78rem; text-align: justify;">
+                                            Em conformidade com a <strong>Lei Geral de Proteção de Dados (Lei nº 13.709/2018 - Art. 5º, II e Art. 11)</strong>, informamos que sua imagem capturada pela webcam é processada exclusivamente em memória local no seu navegador para a extração de um <strong>descritor biométrico matemático irreversível (vetor numérico de 128 dimensões)</strong>. <strong>Nenhuma fotografia ou vídeo do seu rosto é salvo no banco de dados</strong> (Princípio da Minimização de Dados). O vetor biométrico será utilizado única e exclusivamente para autenticação intransferível de ponto e prevenção a fraudes de controle de acesso às áreas restritas do laboratório HealthTech.
+                                        </p>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="consentimentoLgpd" required>
+                                            <label class="form-check-label small text-light" for="consentimentoLgpd">
+                                                Li e concordo com o tratamento dos meus dados biométricos nos termos da LGPD.
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" id="btnSalvarCadastro" class="btn btn-success w-100 fw-bold" disabled>
+                                        <i class="bi bi-check2-circle me-2"></i>Finalizar Cadastro Biométrico
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
